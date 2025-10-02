@@ -16,7 +16,6 @@ class GatewayHandler(JSONRequestHandler):
     routes = []
 
 
-# --- Event Bus for Real-Time Updates ---
 class _EventBus:
     def __init__(self):
         self._lock = threading.Lock()
@@ -54,7 +53,6 @@ def _broadcast_history(event: dict):
         _updates_bus.publish("history", event)
 
 
-# --- Service Call Helper ---
 def call_service(method: str, url: str, payload=None):
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     req = request.Request(url, data=data, method=method)
@@ -74,13 +72,11 @@ def call_service(method: str, url: str, payload=None):
         return exc.code, payload
 
 
-# --- Auction Routes ---
 @GatewayHandler.route("POST", "/api/auctions")
 def create_auction(handler, payload, params):
     status, resp = call_service("POST", f"{AUCTION_SERVICE}/auctions", payload)
     if status >= 400:
         return status, resp
-
     auction = resp.get("auction")
     if auction:
         history_payload = {
@@ -100,7 +96,6 @@ def list_auctions(handler, payload, params):
     return status, resp
 
 
-# --- Bidding Logic ---
 def _execute_bid(auction_id: str, bidder: str, amount):
     if not bidder:
         return 400, {"error": "bidder is required"}
@@ -121,18 +116,17 @@ def _execute_bid(auction_id: str, bidder: str, amount):
         message = auction.get("status_reason") or "Auction is not active"
         return 409, {"error": message}
 
-    # Validate with bidding service
-    status, validation = call_service("POST", f"{BIDDING_SERVICE}/validate", {
+    validation_payload = {
         "amount": amount_value,
         "current_bid": auction.get("current_bid"),
         "bidder": bidder,
-    })
+    }
+    status, validation = call_service("POST", f"{BIDDING_SERVICE}/validate", validation_payload)
     if status >= 400:
         return status, validation
     if not validation.get("ok"):
         return 409, validation
 
-    # Apply bid
     status, update = call_service("POST", f"{AUCTION_SERVICE}/auctions/{auction_id}/bid", {
         "bidder": bidder,
         "amount": amount_value,
@@ -207,21 +201,18 @@ def close_auction(handler, payload, params):
     return 200, closed
 
 
-# --- History Routes ---
 @GatewayHandler.route("GET", "/api/history")
 def get_history(handler, payload, params):
     status, events = call_service("GET", f"{HISTORY_SERVICE}/events")
     return status, events
 
 
-# --- Streaming Updates (SSE) ---
 @GatewayHandler.route("GET", "/api/updates/stream")
 def stream_updates(handler, payload, params):
     subscriber = _updates_bus.subscribe()
 
     def iterator():
         try:
-            # Send snapshot first
             status, auctions_resp = call_service("GET", f"{AUCTION_SERVICE}/auctions")
             status_hist, history_resp = call_service("GET", f"{HISTORY_SERVICE}/events")
             snapshot = {
@@ -229,8 +220,6 @@ def stream_updates(handler, payload, params):
                 "events": history_resp.get("events", []) if status_hist == 200 else [],
             }
             yield f"event: snapshot\ndata: {json.dumps(snapshot)}\n\n"
-
-            # Push updates
             while True:
                 try:
                     message = subscriber.get(timeout=15)
@@ -252,7 +241,6 @@ def stream_updates(handler, payload, params):
     return StreamingResponse(200, headers, iterator())
 
 
-# --- Server Runner ---
 def run():
     port = int(os.getenv("GATEWAY_PORT", "8000"))
     server = ThreadingHTTPServer(("0.0.0.0", port), GatewayHandler)
@@ -262,3 +250,4 @@ def run():
 
 if __name__ == "__main__":
     run()
+

@@ -91,3 +91,4 @@ if __name__ == "__main__":
         print("Usage: python benchmark.py <base_url>")
         sys.exit(1)
     run(sys.argv[1])
+

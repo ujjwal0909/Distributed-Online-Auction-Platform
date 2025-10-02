@@ -34,15 +34,12 @@ class FrontendHandler(SimpleHTTPRequestHandler):
                         continue
                     self.send_header(key, value)
                 self.end_headers()
-
-                # Support both normal JSON and event-streaming responses (SSE)
                 content_type = resp.headers.get("Content-Type", "")
                 try:
                     chunk = resp.read(8192)
                     while chunk:
                         self.wfile.write(chunk)
                         if "text/event-stream" in content_type:
-                            # flush immediately for SSE
                             self.wfile.flush()
                         chunk = resp.read(8192)
                 except BrokenPipeError:
@@ -61,3 +58,4 @@ def run():
 
 if __name__ == "__main__":
     run()
+
