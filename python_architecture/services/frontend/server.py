@@ -1,5 +1,5 @@
 import os
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib import request
 
 GATEWAY_URL = os.getenv("GATEWAY_URL", "http://gateway:8000")
@@ -28,14 +28,25 @@ class FrontendHandler(SimpleHTTPRequestHandler):
         req.add_header("Content-Type", self.headers.get("Content-Type", "application/json"))
         try:
             with request.urlopen(req) as resp:
-                body = resp.read()
                 self.send_response(resp.status)
                 for key, value in resp.headers.items():
                     if key.lower() == "transfer-encoding":
                         continue
                     self.send_header(key, value)
                 self.end_headers()
-                self.wfile.write(body)
+
+                # Support both normal JSON and event-streaming responses (SSE)
+                content_type = resp.headers.get("Content-Type", "")
+                try:
+                    chunk = resp.read(8192)
+                    while chunk:
+                        self.wfile.write(chunk)
+                        if "text/event-stream" in content_type:
+                            # flush immediately for SSE
+                            self.wfile.flush()
+                        chunk = resp.read(8192)
+                except BrokenPipeError:
+                    pass
         except Exception as exc:
             self.send_error(502, f"Gateway error: {exc}")
 
@@ -43,11 +54,10 @@ class FrontendHandler(SimpleHTTPRequestHandler):
 def run():
     port = int(os.getenv("FRONTEND_PORT", "8080"))
     os.chdir(os.path.dirname(__file__))
-    server = HTTPServer(("0.0.0.0", port), FrontendHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", port), FrontendHandler)
     print(f"Frontend listening on {port}")
     server.serve_forever()
 
 
 if __name__ == "__main__":
     run()
-
