@@ -8,7 +8,7 @@ from typing import Dict, List
 from python_architecture.common.http import JSONRequestHandler
 
 
-auditions: Dict[str, dict] = {}
+auctions: Dict[str, dict] = {}
 _lock = threading.Lock()
 
 
@@ -71,16 +71,16 @@ def create_auction(handler, payload, params):
         "bids": [],
     }
     with _lock:
-        auditions[auction_id] = auction
+        auctions[auction_id] = auction
     return 201, {"auction": _clone_auction(auction)}
 
 
 @AuctionHandler.route("GET", "/auctions")
 def list_auctions(handler, payload, params):
     with _lock:
-        for item in auditions.values():
+        for item in auctions.values():
             _expire_if_needed(item)
-        values = [_clone_auction(item) for item in auditions.values()]
+        values = [_clone_auction(item) for item in auctions.values()]
     return 200, {"auctions": values}
 
 
@@ -88,7 +88,7 @@ def list_auctions(handler, payload, params):
 def get_auction(handler, payload, params):
     auction_id = params.get("auction_id")
     with _lock:
-        auction = auditions.get(auction_id)
+        auction = auctions.get(auction_id)
         if not auction:
             return 404, {"error": "auction not found"}
         _expire_if_needed(auction)
@@ -104,7 +104,7 @@ def update_bid(handler, payload, params):
     if amount <= 0 or not bidder:
         return 400, {"error": "invalid bid"}
     with _lock:
-        auction = auditions.get(auction_id)
+        auction = auctions.get(auction_id)
         if not auction:
             return 404, {"error": "auction not found"}
         if _expire_if_needed(auction):
@@ -127,7 +127,7 @@ def update_bid(handler, payload, params):
 def close_auction(handler, payload, params):
     auction_id = params.get("auction_id")
     with _lock:
-        auction = auditions.get(auction_id)
+        auction = auctions.get(auction_id)
         if not auction:
             return 404, {"error": "auction not found"}
         previously_open = auction.get("status") == "OPEN"

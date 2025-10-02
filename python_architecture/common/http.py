@@ -1,6 +1,6 @@
 import json
 from http.server import BaseHTTPRequestHandler
-from typing import Dict, Iterable, Union
+from typing import Dict, Iterable, Tuple, Union
 
 
 class StreamingResponse:
@@ -60,7 +60,7 @@ class JSONRequestHandler(BaseHTTPRequestHandler):
                             pass
                 return
 
-            status, payload_body = response
+            status, payload_body = self._normalize_response(response)
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
@@ -70,7 +70,6 @@ class JSONRequestHandler(BaseHTTPRequestHandler):
         except Exception as exc:
             self.send_error(500, f"Internal error: {exc}")
 
-    @classmethod
     @classmethod
     def _match_route(cls, method: str, path: str):
         for registered_method, parts, handler in cls.routes:
@@ -99,4 +98,19 @@ class JSONRequestHandler(BaseHTTPRequestHandler):
             return func
 
         return decorator
+
+    def log_message(self, format: str, *args):  # noqa: D401 - suppress noisy logs
+        """Silence default stderr logging to keep test output clean."""
+        return
+
+    @staticmethod
+    def _normalize_response(response) -> Tuple[int, Dict]:
+        if isinstance(response, tuple) and len(response) == 2:
+            status, payload_body = response
+            if not isinstance(payload_body, dict):
+                raise TypeError("Handler must return a (status, dict) pair")
+            return int(status), payload_body
+        raise TypeError(
+            "Handlers must return either StreamingResponse or (status, dict)"
+        )
 

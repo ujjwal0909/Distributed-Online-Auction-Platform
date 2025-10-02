@@ -1,3 +1,5 @@
+"""Lightweight benchmarking helper for the auction gateway."""
+
 import json
 import os
 import sys
