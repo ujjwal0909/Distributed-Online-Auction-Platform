@@ -4,6 +4,26 @@
   <meta charset="UTF-8" />
   <title>Distributed Auction Dashboard</title>
   <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; background: #f5f5f5; color: #2c3e50; }
+    h1 { margin-bottom: 1rem; }
+    section { background: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+    label { display: block; margin-top: 0.75rem; font-weight: bold; }
+    input, textarea, select { width: 100%; padding: 0.6rem 0.75rem; margin-top: 0.35rem; border: 1px solid #d0d7de; border-radius: 6px; font-size: 1rem; box-sizing: border-box; }
+    textarea { min-height: 110px; resize: vertical; }
+    button { margin-top: 1rem; padding: 0.6rem 1.2rem; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; transition: background 0.2s ease; }
+    button:hover { background: #1d4ed8; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; }
+    .auction-card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem; background: #fafafa; display: flex; flex-direction: column; gap: 0.5rem; }
+    .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 999px; font-size: 0.8rem; background: #dbeafe; color: #1d4ed8; }
+    .badge.closed { background: #fee2e2; color: #b91c1c; }
+    .history { font-size: 0.95rem; line-height: 1.5; }
+    .history-entry { margin-bottom: 0.25rem; }
+    .message { padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
+    .message.success { background: #dcfce7; color: #166534; }
+    .message.error { background: #fee2e2; color: #991b1b; }
+    .bids-list { border-top: 1px solid #e5e7eb; padding-top: 0.5rem; font-size: 0.95rem; }
+    .bids-list div { margin-bottom: 0.35rem; }
+
     body { font-family: Arial, sans-serif; margin: 2rem; background: #f5f5f5; }
     h1 { color: #2c3e50; }
     section { background: #fff; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
@@ -13,12 +33,155 @@
     button:hover { background: #2980b9; }
     .auction { border-bottom: 1px solid #ddd; padding: 0.5rem 0; }
     .history { font-size: 0.9rem; }
+
   </style>
 </head>
 <body>
   <h1>Distributed Auction Dashboard</h1>
   <section>
     <h2>Create Auction</h2>
+    <div id="flash" class="message"></div>
+    <form id="create-form">
+      <label for="name">Item Name</label>
+      <input id="name" required />
+
+      <label for="description">Description</label>
+      <textarea id="description"></textarea>
+
+      <label for="starting_bid">Starting Bid</label>
+      <input id="starting_bid" type="number" min="1" step="0.01" value="10" required />
+
+      <label for="duration">Duration (seconds)</label>
+      <input id="duration" type="number" min="5" value="60" required />
+
+      <button type="submit">Create Auction</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Bid Controls</h2>
+    <div class="grid">
+      <form id="bid-form">
+        <h3>Place Bid</h3>
+        <label for="bid-auction">Auction</label>
+        <select id="bid-auction"></select>
+
+        <label for="bidder">Bidder Name</label>
+        <input id="bidder" required />
+
+        <label for="bid-amount">Bid Amount</label>
+        <input id="bid-amount" type="number" min="0" step="0.01" required />
+
+        <button type="submit">Place Bid</button>
+      </form>
+
+      <form id="bulk-form">
+        <h3>Bulk Bids</h3>
+        <label for="bulk-auction">Auction</label>
+        <select id="bulk-auction"></select>
+
+        <label for="bulk-entries">Bids (one per line as <em>bidder, amount</em>)</label>
+        <textarea id="bulk-entries" placeholder="alice, 25
+bob, 30"></textarea>
+
+        <button type="submit">Submit All Bids</button>
+      </form>
+
+      <form id="close-form">
+        <h3>Close Auction</h3>
+        <label for="close-auction">Auction</label>
+        <select id="close-auction"></select>
+        <button type="submit">Close Selected Auction</button>
+      </form>
+    </div>
+  </section>
+
+  <section>
+    <h2>Auctions Overview</h2>
+    <div id="auctions" class="grid"></div>
+  </section>
+
+  <section>
+    <h2>History & Updates</h2>
+    <div id="history" class="history"></div>
+  </section>
+  <script>
+    let auctionsCache = [];
+
+    function flash(type, text) {
+      const node = document.getElementById('flash');
+      node.className = `message ${type}`;
+      node.textContent = text;
+      node.style.display = 'block';
+      setTimeout(() => { node.style.display = 'none'; }, 4000);
+    }
+
+    async function submitJSON(url, method, payload) {
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: payload ? JSON.stringify(payload) : undefined,
+      });
+      const data = await response.json().catch(() => ({}));
+      return { ok: response.ok, status: response.status, data };
+    }
+
+    function populateSelect(selectId, includeClosed = false) {
+      const select = document.getElementById(selectId);
+      select.innerHTML = '';
+      auctionsCache
+        .filter(a => includeClosed || a.status === 'OPEN')
+        .forEach(auction => {
+          const option = document.createElement('option');
+          option.value = auction.id;
+          const price = auction.current_bid.toFixed ? auction.current_bid.toFixed(2) : auction.current_bid;
+          option.textContent = `${auction.name} (#${auction.id}) - $${price}`;
+          select.appendChild(option);
+        });
+      if (!select.options.length) {
+        const placeholder = document.createElement('option');
+        placeholder.textContent = includeClosed ? 'No auctions available' : 'No open auctions';
+        placeholder.value = '';
+        select.appendChild(placeholder);
+      }
+    }
+
+    function renderAuctions() {
+      const container = document.getElementById('auctions');
+      container.innerHTML = '';
+      auctionsCache.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'auction-card';
+        const statusClass = item.status === 'OPEN' ? 'badge' : 'badge closed';
+        const closing = new Date(item.closing_time * 1000).toLocaleTimeString();
+        const bidsMarkup = (item.bids || []).map(bid => {
+          const time = new Date(bid.timestamp * 1000).toLocaleTimeString();
+          return `<div><strong>${bid.bidder}</strong> bid $${Number(bid.amount).toFixed(2)} <span style="color:#6b7280">@ ${time}</span></div>`;
+        }).join('') || '<div>No bids yet</div>';
+
+        div.innerHTML = `
+          <div style="display:flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin:0">${item.name}</h3>
+            <span class="${statusClass}">${item.status}</span>
+          </div>
+          <div>${item.description || 'No description provided.'}</div>
+          <div><strong>Current Bid:</strong> $${Number(item.current_bid).toFixed(2)}</div>
+          <div><strong>Highest Bidder:</strong> ${item.highest_bidder || '—'}</div>
+          <div><strong>Closes:</strong> ${closing}</div>
+          <div class="bids-list"><strong>Bid History</strong>${bidsMarkup}</div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function loadAuctions() {
+      const res = await fetch('/api/auctions');
+      const data = await res.json();
+      auctionsCache = data.auctions || [];
+      populateSelect('bid-auction');
+      populateSelect('bulk-auction');
+      populateSelect('close-auction', true);
+      renderAuctions();
     <label>Item Name <input id="name" /></label>
     <label>Description <textarea id="description"></textarea></label>
     <label>Starting Bid <input id="starting_bid" type="number" value="10" /></label>
@@ -71,6 +234,7 @@
           `<button onclick="closeAuction('${item.id}')">Close</button>`;
         container.appendChild(div);
       });
+
       loadHistory();
     }
 
@@ -81,14 +245,100 @@
       container.innerHTML = '';
       (data.events || []).slice().reverse().forEach(item => {
         const div = document.createElement('div');
+        div.className = 'history-entry';
+
         div.className = 'history';
+
         const when = new Date(item.timestamp * 1000).toLocaleTimeString();
         div.textContent = `[${when}] ${item.event_type} - ${item.payload}`;
         container.appendChild(div);
       });
     }
 
+
+    document.getElementById('create-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const payload = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value,
+        starting_bid: parseFloat(document.getElementById('starting_bid').value),
+        duration_seconds: parseInt(document.getElementById('duration').value, 10),
+      };
+      const result = await submitJSON('/api/auctions', 'POST', payload);
+      if (result.ok) {
+        flash('success', 'Auction created successfully.');
+        event.target.reset();
+        document.getElementById('starting_bid').value = 10;
+        document.getElementById('duration').value = 60;
+        loadAuctions();
+      } else {
+        flash('error', result.data.error || result.data.message || 'Failed to create auction');
+      }
+    });
+
+    document.getElementById('bid-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const auctionId = document.getElementById('bid-auction').value;
+      if (!auctionId) return;
+      const payload = {
+        bidder: document.getElementById('bidder').value,
+        amount: parseFloat(document.getElementById('bid-amount').value),
+      };
+      const result = await submitJSON(`/api/auctions/${auctionId}/bid`, 'POST', payload);
+      if (result.ok) {
+        flash('success', 'Bid accepted.');
+        event.target.reset();
+        loadAuctions();
+      } else {
+        flash('error', result.data.error || result.data.message || 'Bid failed');
+      }
+    });
+
+    document.getElementById('bulk-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const auctionId = document.getElementById('bulk-auction').value;
+      if (!auctionId) return;
+      const lines = document.getElementById('bulk-entries').value
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean);
+      const bids = lines.map(line => {
+        const [name, amount] = line.split(/[,\s]+/);
+        return { bidder: name, amount: parseFloat(amount) };
+      }).filter(entry => entry.bidder && !isNaN(entry.amount));
+      if (!bids.length) {
+        flash('error', 'Provide at least one valid bidder and amount pair.');
+        return;
+      }
+      const result = await submitJSON(`/api/auctions/${auctionId}/bids/bulk`, 'POST', { bids });
+      if (result.ok) {
+        const accepted = result.data.accepted || 0;
+        flash('success', `Processed ${accepted} of ${result.data.submitted} bids.`);
+        document.getElementById('bulk-entries').value = '';
+        loadAuctions();
+      } else {
+        const accepted = result.data.accepted || 0;
+        flash('error', `No bids accepted. Last response: ${JSON.stringify(result.data.results?.slice(-1)[0]?.response || result.data)}`);
+      }
+    });
+
+    document.getElementById('close-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const auctionId = document.getElementById('close-auction').value;
+      if (!auctionId) return;
+      const result = await submitJSON(`/api/auctions/${auctionId}/close`, 'POST');
+      if (result.ok) {
+        flash('success', 'Auction closed.');
+        loadAuctions();
+      } else {
+        flash('error', result.data.error || 'Unable to close auction');
+      }
+    });
+
+    setInterval(loadAuctions, 4000);
+
     setInterval(loadAuctions, 3000);
+
     loadAuctions();
   </script>
 </body>

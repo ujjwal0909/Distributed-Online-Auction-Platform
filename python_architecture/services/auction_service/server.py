@@ -3,7 +3,11 @@ import os
 import threading
 import time
 from http.server import HTTPServer
+
+from typing import Dict, List
+=======
 from typing import Dict
+
 
 from python_architecture.common.http import JSONRequestHandler
 
@@ -11,6 +15,26 @@ from python_architecture.common.http import JSONRequestHandler
 auditions: Dict[str, dict] = {}
 _lock = threading.Lock()
 
+
+
+def _clone_auction(auction: dict) -> dict:
+    copy = dict(auction)
+    bids: List[dict] = copy.get("bids", [])
+    copy["bids"] = [dict(bid) for bid in bids]
+    return copy
+
+
+def _expire_if_needed(auction: dict) -> bool:
+    if not auction or auction.get("status") != "OPEN":
+        return False
+    closing_time = auction.get("closing_time")
+    if not closing_time:
+        return False
+    if time.time() >= closing_time:
+        auction["status"] = "CLOSED"
+        auction["closing_time"] = closing_time
+        return True
+    return False
 
 class AuctionHandler(JSONRequestHandler):
     routes = []
@@ -36,16 +60,28 @@ def create_auction(handler, payload, params):
         "duration_seconds": duration,
         "status": "OPEN",
         "closing_time": time.time() + duration,
+        "bids": [],
+    }
+    with _lock:
+        auditions[auction_id] = auction
+    return 201, {"auction": _clone_auction(auction)}
+
     }
     with _lock:
         auditions[auction_id] = auction
     return 201, {"auction": auction}
 
 
+
 @AuctionHandler.route("GET", "/auctions")
 def list_auctions(handler, payload, params):
     with _lock:
+        for item in auditions.values():
+            _expire_if_needed(item)
+        values = [_clone_auction(item) for item in auditions.values()]
+
         values = list(auditions.values())
+
     return 200, {"auctions": values}
 
 
@@ -54,6 +90,12 @@ def get_auction(handler, payload, params):
     auction_id = params.get("auction_id")
     with _lock:
         auction = auditions.get(auction_id)
+        if not auction:
+            return 404, {"error": "auction not found"}
+        _expire_if_needed(auction)
+        cloned = _clone_auction(auction)
+    return 200, {"auction": cloned}
+
     if not auction:
         return 404, {"error": "auction not found"}
     return 200, {"auction": auction}
@@ -70,6 +112,21 @@ def update_bid(handler, payload, params):
         auction = auditions.get(auction_id)
         if not auction:
             return 404, {"error": "auction not found"}
+
+        if _expire_if_needed(auction):
+            return 409, {"error": "auction is not active"}
+        if auction.get("status") != "OPEN":
+            return 409, {"error": "auction is not active"}
+        auction["current_bid"] = amount
+        auction["highest_bidder"] = bidder
+        auction.setdefault("bids", []).append({
+            "bidder": bidder,
+            "amount": amount,
+            "timestamp": time.time(),
+        })
+        cloned = _clone_auction(auction)
+    return 200, {"auction": cloned}
+
         auction["current_bid"] = amount
         auction["highest_bidder"] = bidder
     return 200, {"auction": auction}
@@ -82,6 +139,12 @@ def close_auction(handler, payload, params):
         auction = auditions.get(auction_id)
         if not auction:
             return 404, {"error": "auction not found"}
+        _expire_if_needed(auction)
+        auction["status"] = "CLOSED"
+        auction["closing_time"] = time.time()
+        closed = _clone_auction(auction)
+    return 200, {"auction": closed}
+
         auction["status"] = "CLOSED"
         auction["closing_time"] = time.time()
     return 200, {"auction": auction}
