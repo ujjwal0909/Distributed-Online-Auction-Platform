@@ -39,7 +39,7 @@ docker compose up --build
 ```
 
 Open [http://localhost:8080](http://localhost:8080) to access the dashboard, create auctions, queue multiple bids for a single auction, close auctions, and review historical activity.
-=======
+
 Open [http://localhost:8080](http://localhost:8080) to access the dashboard, create auctions, bid in real time, close auctions, and review historical activity.
 
 
@@ -49,6 +49,13 @@ After either architecture is running, execute the lightweight benchmark script t
 
 ```bash
 # replace BASE_URL with http://localhost:7000 for Go or http://localhost:8080 for Python
+
+python evaluation/benchmark.py http://localhost:8080
+```
+
+> Tip: you can also export an environment variable (e.g. `export BASE_URL=http://localhost:8080`) and run `python evaluation/benchmark.py BASE_URL`. The script resolves placeholders to environment variables and prints friendly error details if a request fails.
+
+
 python evaluation/benchmark.py BASE_URL
 ```
 

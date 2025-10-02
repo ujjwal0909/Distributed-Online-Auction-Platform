@@ -33,6 +33,13 @@ def call_service(method: str, url: str, payload=None):
             payload.setdefault("error", exc.reason)
         return exc.code, payload
 
+
+@GatewayHandler.route("POST", "/api/auctions")
+def create_auction(handler, payload, params):
+    status, resp = call_service("POST", f"{AUCTION_SERVICE}/auctions", payload)
+    if status >= 400:
+        return status, resp
+
             return json.loads(body.decode("utf-8"))
     except error.HTTPError as exc:
         body = exc.read().decode("utf-8")
@@ -87,7 +94,12 @@ def _execute_bid(auction_id: str, bidder: str, amount):
     if not auction:
         return 404, {"error": "auction not found"}
     if auction.get("status") != "OPEN":
+
+        message = auction.get("status_reason") or "Auction is not active"
+        return 409, {"error": message}
+
         return 409, {"error": "Auction is not active"}
+
 
     validation_payload = {
         "amount": amount_value,
@@ -111,6 +123,7 @@ def _execute_bid(auction_id: str, bidder: str, amount):
         "auction_id": auction_id,
         "event_type": "bid",
         "payload": f"{bidder} bid ${amount_value}",
+
     resp = call_service("GET", f"{AUCTION_SERVICE}/auctions")
     return 200, resp
 
@@ -134,6 +147,7 @@ def place_bid(handler, payload, params):
         "auction_id": auction_id,
         "event_type": "bid",
         "payload": f"{payload.get('bidder')} bid ${payload.get('amount')}",
+
 
     })
     return 200, update
@@ -185,7 +199,7 @@ def close_auction(handler, payload, params):
     status, closed = call_service("POST", f"{AUCTION_SERVICE}/auctions/{auction_id}/close")
     if status >= 400:
         return status, closed
-=======
+
 @GatewayHandler.route("POST", "/api/auctions/<auction_id>/close")
 def close_auction(handler, payload, params):
     auction_id = params.get("auction_id")
@@ -203,6 +217,11 @@ def close_auction(handler, payload, params):
 
 @GatewayHandler.route("GET", "/api/history")
 def get_history(handler, payload, params):
+
+    status, events = call_service("GET", f"{HISTORY_SERVICE}/events")
+    return status, events
+
+
 
     status, events = call_service("GET", f"{HISTORY_SERVICE}/events")
     return status, events

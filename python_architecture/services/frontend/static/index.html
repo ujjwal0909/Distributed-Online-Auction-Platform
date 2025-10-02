@@ -116,6 +116,17 @@ bob, 30"></textarea>
       setTimeout(() => { node.style.display = 'none'; }, 4000);
     }
 
+
+    function resolveMessage(value, fallback) {
+      if (!value) return fallback;
+      if (typeof value === 'string') return value;
+      if (typeof value === 'object') {
+        if (value.error) return resolveMessage(value.error, fallback);
+        if (value.message) return resolveMessage(value.message, fallback);
+      }
+      return fallback;
+    }
+
     async function submitJSON(url, method, payload) {
       const response = await fetch(url, {
         method,
@@ -135,7 +146,14 @@ bob, 30"></textarea>
           const option = document.createElement('option');
           option.value = auction.id;
           const price = auction.current_bid.toFixed ? auction.current_bid.toFixed(2) : auction.current_bid;
+
+          const statusNote = auction.status !== 'OPEN' && auction.status_reason
+            ? ` - ${auction.status_reason}`
+            : '';
+          option.textContent = `${auction.name} (#${auction.id}) - $${price}${statusNote}`;
+
           option.textContent = `${auction.name} (#${auction.id}) - $${price}`;
+
           select.appendChild(option);
         });
       if (!select.options.length) {
@@ -153,7 +171,16 @@ bob, 30"></textarea>
         const div = document.createElement('div');
         div.className = 'auction-card';
         const statusClass = item.status === 'OPEN' ? 'badge' : 'badge closed';
+
+        const statusLabel = item.status === 'OPEN'
+          ? 'OPEN'
+          : (item.status_reason || item.status || 'CLOSED');
+        const closingTime = new Date(item.closing_time * 1000);
+        const closingLabel = item.status === 'OPEN' ? 'Closes' : 'Ended';
+        const closing = closingTime.toLocaleTimeString();
+
         const closing = new Date(item.closing_time * 1000).toLocaleTimeString();
+
         const bidsMarkup = (item.bids || []).map(bid => {
           const time = new Date(bid.timestamp * 1000).toLocaleTimeString();
           return `<div><strong>${bid.bidder}</strong> bid $${Number(bid.amount).toFixed(2)} <span style="color:#6b7280">@ ${time}</span></div>`;
@@ -162,12 +189,21 @@ bob, 30"></textarea>
         div.innerHTML = `
           <div style="display:flex; justify-content: space-between; align-items: center;">
             <h3 style="margin:0">${item.name}</h3>
+
+            <span class="${statusClass}">${statusLabel}</span>
+
             <span class="${statusClass}">${item.status}</span>
+
           </div>
           <div>${item.description || 'No description provided.'}</div>
           <div><strong>Current Bid:</strong> $${Number(item.current_bid).toFixed(2)}</div>
           <div><strong>Highest Bidder:</strong> ${item.highest_bidder || '—'}</div>
+
+          <div><strong>${closingLabel}:</strong> ${closing}</div>
+          ${item.status !== 'OPEN' && item.status_reason ? `<div><em>${item.status_reason}</em></div>` : ''}
+
           <div><strong>Closes:</strong> ${closing}</div>
+
           <div class="bids-list"><strong>Bid History</strong>${bidsMarkup}</div>
         `;
         container.appendChild(div);
@@ -182,6 +218,7 @@ bob, 30"></textarea>
       populateSelect('bulk-auction');
       populateSelect('close-auction', true);
       renderAuctions();
+
     <label>Item Name <input id="name" /></label>
     <label>Description <textarea id="description"></textarea></label>
     <label>Starting Bid <input id="starting_bid" type="number" value="10" /></label>
@@ -272,7 +309,11 @@ bob, 30"></textarea>
         document.getElementById('duration').value = 60;
         loadAuctions();
       } else {
+
+        flash('error', resolveMessage(result.data, 'Failed to create auction'));
+
         flash('error', result.data.error || result.data.message || 'Failed to create auction');
+
       }
     });
 
@@ -290,7 +331,11 @@ bob, 30"></textarea>
         event.target.reset();
         loadAuctions();
       } else {
+
+        flash('error', resolveMessage(result.data, 'Bid failed'));
+
         flash('error', result.data.error || result.data.message || 'Bid failed');
+
       }
     });
 
@@ -318,7 +363,12 @@ bob, 30"></textarea>
         loadAuctions();
       } else {
         const accepted = result.data.accepted || 0;
+
+        const lastResponse = result.data.results?.slice(-1)[0]?.response || result.data;
+        flash('error', resolveMessage(lastResponse, `No bids accepted out of ${result.data.submitted || 0}.`));
+
         flash('error', `No bids accepted. Last response: ${JSON.stringify(result.data.results?.slice(-1)[0]?.response || result.data)}`);
+
       }
     });
 
@@ -331,7 +381,11 @@ bob, 30"></textarea>
         flash('success', 'Auction closed.');
         loadAuctions();
       } else {
+
+        flash('error', resolveMessage(result.data, 'Unable to close auction'));
+
         flash('error', result.data.error || 'Unable to close auction');
+
       }
     });
 

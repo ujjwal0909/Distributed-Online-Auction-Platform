@@ -81,6 +81,11 @@ func (s *catalogService) updateBid(item *pb.Auction, amount float64, bidder stri
 	}
 
 
+	if expireIfNeeded(existing) || existing.Status != "OPEN" {
+		return &pb.AuctionResponse{Ok: false, Message: "auction is not open"}, nil
+	}
+
+
 	existing.CurrentBid = amount
 	existing.HighestBidder = bidder
 	return &pb.AuctionResponse{Ok: true, Auction: cloneAuction(existing)}, nil
@@ -108,6 +113,8 @@ func (s *catalogService) list() (*pb.AuctionResponse, error) {
 	defer s.mu.Unlock()
 	out := make([]*pb.Auction, 0, len(s.items))
 	for _, item := range s.items {
+		expireIfNeeded(item)
+
 
 		expireIfNeeded(item)
 
@@ -132,7 +139,6 @@ func expireIfNeeded(item *pb.Auction) bool {
 	}
 	return false
 }
-
 
 func cloneAuction(in *pb.Auction) *pb.Auction {
 	if in == nil {
