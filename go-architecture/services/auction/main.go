@@ -110,13 +110,7 @@ func (s *catalogService) list() (*pb.AuctionResponse, error) {
 }
 
 func expireIfNeeded(item *pb.Auction) bool {
-	if item == nil {
-		return false
-	}
-	if item.Status != "OPEN" {
-		return false
-	}
-	if item.ClosingTime == 0 {
+	if item == nil || item.Status != "OPEN" || item.ClosingTime == 0 {
 		return false
 	}
 	if time.Now().Unix() >= item.ClosingTime {

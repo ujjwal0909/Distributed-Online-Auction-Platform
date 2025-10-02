@@ -8,7 +8,7 @@ from typing import Dict, List
 from python_architecture.common.http import JSONRequestHandler
 
 
-auditions: Dict[str, dict] = {}
+auctions: Dict[str, dict] = {}
 _lock = threading.Lock()
 
 
@@ -16,6 +16,7 @@ def _clone_auction(auction: dict) -> dict:
     copy = dict(auction)
     bids: List[dict] = copy.get("bids", [])
     copy["bids"] = [dict(bid) for bid in bids]
+
     if "status_reason" not in copy:
         status = copy.get("status")
         if status == "OPEN":
@@ -56,6 +57,7 @@ def create_auction(handler, payload, params):
         return 400, {"error": "name is required"}
     if starting_bid <= 0:
         return 400, {"error": "starting_bid must be positive"}
+
     auction_id = str(int(time.time() * 1000))
     auction = {
         "id": auction_id,
@@ -71,16 +73,16 @@ def create_auction(handler, payload, params):
         "bids": [],
     }
     with _lock:
-        auditions[auction_id] = auction
+        auctions[auction_id] = auction
     return 201, {"auction": _clone_auction(auction)}
 
 
 @AuctionHandler.route("GET", "/auctions")
 def list_auctions(handler, payload, params):
     with _lock:
-        for item in auditions.values():
+        for item in auctions.values():
             _expire_if_needed(item)
-        values = [_clone_auction(item) for item in auditions.values()]
+        values = [_clone_auction(item) for item in auctions.values()]
     return 200, {"auctions": values}
 
 
@@ -88,7 +90,7 @@ def list_auctions(handler, payload, params):
 def get_auction(handler, payload, params):
     auction_id = params.get("auction_id")
     with _lock:
-        auction = auditions.get(auction_id)
+        auction = auctions.get(auction_id)
         if not auction:
             return 404, {"error": "auction not found"}
         _expire_if_needed(auction)
@@ -104,7 +106,7 @@ def update_bid(handler, payload, params):
     if amount <= 0 or not bidder:
         return 400, {"error": "invalid bid"}
     with _lock:
-        auction = auditions.get(auction_id)
+        auction = auctions.get(auction_id)
         if not auction:
             return 404, {"error": "auction not found"}
         if _expire_if_needed(auction):
@@ -112,6 +114,7 @@ def update_bid(handler, payload, params):
         if auction.get("status") != "OPEN":
             message = auction.get("status_reason") or "auction is not active"
             return 409, {"error": message}
+
         auction["current_bid"] = amount
         auction["highest_bidder"] = bidder
         auction.setdefault("bids", []).append({
@@ -127,7 +130,7 @@ def update_bid(handler, payload, params):
 def close_auction(handler, payload, params):
     auction_id = params.get("auction_id")
     with _lock:
-        auction = auditions.get(auction_id)
+        auction = auctions.get(auction_id)
         if not auction:
             return 404, {"error": "auction not found"}
         previously_open = auction.get("status") == "OPEN"
@@ -150,4 +153,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-

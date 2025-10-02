@@ -37,7 +37,10 @@ class JSONRequestHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             body = self.rfile.read(length) if length else b""
             payload = json.loads(body.decode("utf-8")) if body else {}
+
             response = handler(self, payload, params)
+
+            # Support streaming (e.g. SSE)
             if isinstance(response, StreamingResponse):
                 self.send_response(response.status)
                 for key, value in response.headers.items():
@@ -60,17 +63,18 @@ class JSONRequestHandler(BaseHTTPRequestHandler):
                             pass
                 return
 
+            # Normal JSON response
             status, payload_body = response
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(payload_body).encode("utf-8"))
+
         except json.JSONDecodeError:
             self.send_error(400, "Invalid JSON")
         except Exception as exc:
             self.send_error(500, f"Internal error: {exc}")
 
-    @classmethod
     @classmethod
     def _match_route(cls, method: str, path: str):
         for registered_method, parts, handler in cls.routes:
@@ -97,6 +101,4 @@ class JSONRequestHandler(BaseHTTPRequestHandler):
             parts = path.strip("/").split("/") if path.strip("/") else []
             cls.routes.append((method, parts, func))
             return func
-
         return decorator
-
