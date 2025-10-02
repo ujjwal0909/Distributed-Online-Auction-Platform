@@ -61,6 +61,7 @@ func (s *catalogService) get(item *pb.Auction) (*pb.AuctionResponse, error) {
 		return &pb.AuctionResponse{Ok: false, Message: "auction not found"}, nil
 	}
 	expireIfNeeded(found)
+
 	return &pb.AuctionResponse{Ok: true, Auction: cloneAuction(found)}, nil
 }
 
@@ -74,9 +75,12 @@ func (s *catalogService) updateBid(item *pb.Auction, amount float64, bidder stri
 	if !ok {
 		return &pb.AuctionResponse{Ok: false, Message: "auction not found"}, nil
 	}
+
 	if expireIfNeeded(existing) || existing.Status != "OPEN" {
 		return &pb.AuctionResponse{Ok: false, Message: "auction is not open"}, nil
 	}
+
+
 	existing.CurrentBid = amount
 	existing.HighestBidder = bidder
 	return &pb.AuctionResponse{Ok: true, Auction: cloneAuction(existing)}, nil
@@ -93,6 +97,7 @@ func (s *catalogService) closeAuction(item *pb.Auction) (*pb.AuctionResponse, er
 		return &pb.AuctionResponse{Ok: false, Message: "auction not found"}, nil
 	}
 	expireIfNeeded(existing)
+
 	existing.Status = "CLOSED"
 	existing.ClosingTime = time.Now().Unix()
 	return &pb.AuctionResponse{Ok: true, Auction: cloneAuction(existing)}, nil
@@ -103,7 +108,9 @@ func (s *catalogService) list() (*pb.AuctionResponse, error) {
 	defer s.mu.Unlock()
 	out := make([]*pb.Auction, 0, len(s.items))
 	for _, item := range s.items {
+
 		expireIfNeeded(item)
+
 		out = append(out, cloneAuction(item))
 	}
 	return &pb.AuctionResponse{Ok: true, Auctions: out}, nil
@@ -125,6 +132,7 @@ func expireIfNeeded(item *pb.Auction) bool {
 	}
 	return false
 }
+
 
 func cloneAuction(in *pb.Auction) *pb.Auction {
 	if in == nil {

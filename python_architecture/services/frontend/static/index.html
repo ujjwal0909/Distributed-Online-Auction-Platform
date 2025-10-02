@@ -23,6 +23,17 @@
     .message.error { background: #fee2e2; color: #991b1b; }
     .bids-list { border-top: 1px solid #e5e7eb; padding-top: 0.5rem; font-size: 0.95rem; }
     .bids-list div { margin-bottom: 0.35rem; }
+
+    body { font-family: Arial, sans-serif; margin: 2rem; background: #f5f5f5; }
+    h1 { color: #2c3e50; }
+    section { background: #fff; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
+    label { display: block; margin-top: 0.5rem; }
+    input, textarea { width: 100%; padding: 0.5rem; margin-top: 0.25rem; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #2980b9; }
+    .auction { border-bottom: 1px solid #ddd; padding: 0.5rem 0; }
+    .history { font-size: 0.9rem; }
+
   </style>
 </head>
 <body>
@@ -171,6 +182,59 @@ bob, 30"></textarea>
       populateSelect('bulk-auction');
       populateSelect('close-auction', true);
       renderAuctions();
+    <label>Item Name <input id="name" /></label>
+    <label>Description <textarea id="description"></textarea></label>
+    <label>Starting Bid <input id="starting_bid" type="number" value="10" /></label>
+    <label>Duration (seconds) <input id="duration" type="number" value="60" /></label>
+    <button onclick="createAuction()">Create</button>
+  </section>
+  <section>
+    <h2>Active Auctions</h2>
+    <div id="auctions"></div>
+  </section>
+  <section>
+    <h2>History & Updates</h2>
+    <div id="history"></div>
+  </section>
+  <script>
+    async function createAuction() {
+      const payload = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value,
+        starting_bid: parseFloat(document.getElementById('starting_bid').value),
+        duration_seconds: parseInt(document.getElementById('duration').value, 10)
+      };
+      await fetch('/api/auctions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      loadAuctions();
+    }
+
+    async function placeBid(id) {
+      const bidder = prompt('Bidder name');
+      const amount = parseFloat(prompt('Bid amount'));
+      if (!bidder || !amount) return;
+      await fetch(`/api/auctions/${id}/bid`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bidder, amount }) });
+      loadAuctions();
+    }
+
+    async function closeAuction(id) {
+      await fetch(`/api/auctions/${id}/close`, { method: 'POST' });
+      loadAuctions();
+    }
+
+    async function loadAuctions() {
+      const res = await fetch('/api/auctions');
+      const data = await res.json();
+      const container = document.getElementById('auctions');
+      container.innerHTML = '';
+      (data.auctions || []).forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'auction';
+        div.innerHTML = `<strong>${item.name}</strong> - $${item.current_bid} (${item.status})<br/>` +
+          `<button onclick="placeBid('${item.id}')">Bid</button>` +
+          `<button onclick="closeAuction('${item.id}')">Close</button>`;
+        container.appendChild(div);
+      });
+
       loadHistory();
     }
 
@@ -182,11 +246,15 @@ bob, 30"></textarea>
       (data.events || []).slice().reverse().forEach(item => {
         const div = document.createElement('div');
         div.className = 'history-entry';
+
+        div.className = 'history';
+
         const when = new Date(item.timestamp * 1000).toLocaleTimeString();
         div.textContent = `[${when}] ${item.event_type} - ${item.payload}`;
         container.appendChild(div);
       });
     }
+
 
     document.getElementById('create-form').addEventListener('submit', async event => {
       event.preventDefault();
@@ -268,6 +336,9 @@ bob, 30"></textarea>
     });
 
     setInterval(loadAuctions, 4000);
+
+    setInterval(loadAuctions, 3000);
+
     loadAuctions();
   </script>
 </body>

@@ -39,6 +39,9 @@ docker compose up --build
 ```
 
 Open [http://localhost:8080](http://localhost:8080) to access the dashboard, create auctions, queue multiple bids for a single auction, close auctions, and review historical activity.
+=======
+Open [http://localhost:8080](http://localhost:8080) to access the dashboard, create auctions, bid in real time, close auctions, and review historical activity.
+
 
 ## Benchmarking throughput and latency
 
