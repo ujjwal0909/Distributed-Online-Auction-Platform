@@ -23,6 +23,17 @@
     .message.error { background: #fee2e2; color: #991b1b; }
     .bids-list { border-top: 1px solid #e5e7eb; padding-top: 0.5rem; font-size: 0.95rem; }
     .bids-list div { margin-bottom: 0.35rem; }
+
+    body { font-family: Arial, sans-serif; margin: 2rem; background: #f5f5f5; }
+    h1 { color: #2c3e50; }
+    section { background: #fff; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
+    label { display: block; margin-top: 0.5rem; }
+    input, textarea { width: 100%; padding: 0.5rem; margin-top: 0.25rem; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #2980b9; }
+    .auction { border-bottom: 1px solid #ddd; padding: 0.5rem 0; }
+    .history { font-size: 0.9rem; }
+
   </style>
 </head>
 <body>
@@ -105,6 +116,7 @@ bob, 30"></textarea>
       setTimeout(() => { node.style.display = 'none'; }, 4000);
     }
 
+
     function resolveMessage(value, fallback) {
       if (!value) return fallback;
       if (typeof value === 'string') return value;
@@ -134,10 +146,14 @@ bob, 30"></textarea>
           const option = document.createElement('option');
           option.value = auction.id;
           const price = auction.current_bid.toFixed ? auction.current_bid.toFixed(2) : auction.current_bid;
+
           const statusNote = auction.status !== 'OPEN' && auction.status_reason
             ? ` - ${auction.status_reason}`
             : '';
           option.textContent = `${auction.name} (#${auction.id}) - $${price}${statusNote}`;
+
+          option.textContent = `${auction.name} (#${auction.id}) - $${price}`;
+
           select.appendChild(option);
         });
       if (!select.options.length) {
@@ -155,12 +171,16 @@ bob, 30"></textarea>
         const div = document.createElement('div');
         div.className = 'auction-card';
         const statusClass = item.status === 'OPEN' ? 'badge' : 'badge closed';
+
         const statusLabel = item.status === 'OPEN'
           ? 'OPEN'
           : (item.status_reason || item.status || 'CLOSED');
         const closingTime = new Date(item.closing_time * 1000);
         const closingLabel = item.status === 'OPEN' ? 'Closes' : 'Ended';
         const closing = closingTime.toLocaleTimeString();
+
+        const closing = new Date(item.closing_time * 1000).toLocaleTimeString();
+
         const bidsMarkup = (item.bids || []).map(bid => {
           const time = new Date(bid.timestamp * 1000).toLocaleTimeString();
           return `<div><strong>${bid.bidder}</strong> bid $${Number(bid.amount).toFixed(2)} <span style="color:#6b7280">@ ${time}</span></div>`;
@@ -169,13 +189,21 @@ bob, 30"></textarea>
         div.innerHTML = `
           <div style="display:flex; justify-content: space-between; align-items: center;">
             <h3 style="margin:0">${item.name}</h3>
+
             <span class="${statusClass}">${statusLabel}</span>
+
+            <span class="${statusClass}">${item.status}</span>
+
           </div>
           <div>${item.description || 'No description provided.'}</div>
           <div><strong>Current Bid:</strong> $${Number(item.current_bid).toFixed(2)}</div>
           <div><strong>Highest Bidder:</strong> ${item.highest_bidder || '—'}</div>
+
           <div><strong>${closingLabel}:</strong> ${closing}</div>
           ${item.status !== 'OPEN' && item.status_reason ? `<div><em>${item.status_reason}</em></div>` : ''}
+
+          <div><strong>Closes:</strong> ${closing}</div>
+
           <div class="bids-list"><strong>Bid History</strong>${bidsMarkup}</div>
         `;
         container.appendChild(div);
@@ -190,6 +218,60 @@ bob, 30"></textarea>
       populateSelect('bulk-auction');
       populateSelect('close-auction', true);
       renderAuctions();
+
+    <label>Item Name <input id="name" /></label>
+    <label>Description <textarea id="description"></textarea></label>
+    <label>Starting Bid <input id="starting_bid" type="number" value="10" /></label>
+    <label>Duration (seconds) <input id="duration" type="number" value="60" /></label>
+    <button onclick="createAuction()">Create</button>
+  </section>
+  <section>
+    <h2>Active Auctions</h2>
+    <div id="auctions"></div>
+  </section>
+  <section>
+    <h2>History & Updates</h2>
+    <div id="history"></div>
+  </section>
+  <script>
+    async function createAuction() {
+      const payload = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value,
+        starting_bid: parseFloat(document.getElementById('starting_bid').value),
+        duration_seconds: parseInt(document.getElementById('duration').value, 10)
+      };
+      await fetch('/api/auctions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      loadAuctions();
+    }
+
+    async function placeBid(id) {
+      const bidder = prompt('Bidder name');
+      const amount = parseFloat(prompt('Bid amount'));
+      if (!bidder || !amount) return;
+      await fetch(`/api/auctions/${id}/bid`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bidder, amount }) });
+      loadAuctions();
+    }
+
+    async function closeAuction(id) {
+      await fetch(`/api/auctions/${id}/close`, { method: 'POST' });
+      loadAuctions();
+    }
+
+    async function loadAuctions() {
+      const res = await fetch('/api/auctions');
+      const data = await res.json();
+      const container = document.getElementById('auctions');
+      container.innerHTML = '';
+      (data.auctions || []).forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'auction';
+        div.innerHTML = `<strong>${item.name}</strong> - $${item.current_bid} (${item.status})<br/>` +
+          `<button onclick="placeBid('${item.id}')">Bid</button>` +
+          `<button onclick="closeAuction('${item.id}')">Close</button>`;
+        container.appendChild(div);
+      });
+
       loadHistory();
     }
 
@@ -201,11 +283,15 @@ bob, 30"></textarea>
       (data.events || []).slice().reverse().forEach(item => {
         const div = document.createElement('div');
         div.className = 'history-entry';
+
+        div.className = 'history';
+
         const when = new Date(item.timestamp * 1000).toLocaleTimeString();
         div.textContent = `[${when}] ${item.event_type} - ${item.payload}`;
         container.appendChild(div);
       });
     }
+
 
     document.getElementById('create-form').addEventListener('submit', async event => {
       event.preventDefault();
@@ -223,7 +309,11 @@ bob, 30"></textarea>
         document.getElementById('duration').value = 60;
         loadAuctions();
       } else {
+
         flash('error', resolveMessage(result.data, 'Failed to create auction'));
+
+        flash('error', result.data.error || result.data.message || 'Failed to create auction');
+
       }
     });
 
@@ -241,7 +331,11 @@ bob, 30"></textarea>
         event.target.reset();
         loadAuctions();
       } else {
+
         flash('error', resolveMessage(result.data, 'Bid failed'));
+
+        flash('error', result.data.error || result.data.message || 'Bid failed');
+
       }
     });
 
@@ -269,8 +363,12 @@ bob, 30"></textarea>
         loadAuctions();
       } else {
         const accepted = result.data.accepted || 0;
+
         const lastResponse = result.data.results?.slice(-1)[0]?.response || result.data;
         flash('error', resolveMessage(lastResponse, `No bids accepted out of ${result.data.submitted || 0}.`));
+
+        flash('error', `No bids accepted. Last response: ${JSON.stringify(result.data.results?.slice(-1)[0]?.response || result.data)}`);
+
       }
     });
 
@@ -283,11 +381,18 @@ bob, 30"></textarea>
         flash('success', 'Auction closed.');
         loadAuctions();
       } else {
+
         flash('error', resolveMessage(result.data, 'Unable to close auction'));
+
+        flash('error', result.data.error || 'Unable to close auction');
+
       }
     });
 
     setInterval(loadAuctions, 4000);
+
+    setInterval(loadAuctions, 3000);
+
     loadAuctions();
   </script>
 </body>

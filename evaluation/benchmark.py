@@ -1,4 +1,5 @@
 import json
+
 import os
 import sys
 import time
@@ -13,13 +14,19 @@ def _handle_http_error(exc: error.HTTPError):
     except json.JSONDecodeError:
         parsed = {"error": body.strip()}
     message = parsed.get("error") or parsed.get("message") or exc.reason
-    raise RuntimeError(f"{exc.code} {exc.reason} for {exc.url}: {message}") from exc
+
+import sys
+import time
+from statistics import mean
+from urllib import request
+
 
 
 def call(url, payload):
     data = json.dumps(payload).encode("utf-8")
     req = request.Request(url, data=data, method="POST")
     req.add_header("Content-Type", "application/json")
+
     try:
         with request.urlopen(req) as resp:
             return json.loads(resp.read().decode("utf-8"))
@@ -82,6 +89,33 @@ def run(base_url: str, iterations: int = 5):
         print("No successful iterations were recorded.")
         return
     throughput = len(latencies) / sum(latencies)
+
+    with request.urlopen(req) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def get(url):
+    with request.urlopen(url) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def run(base_url: str, iterations: int = 5):
+    latencies = []
+    for idx in range(iterations):
+        start = time.time()
+        create = call(f"{base_url}/api/auctions", {
+            "name": f"Load Test Item {idx}",
+            "description": "Benchmark item",
+            "starting_bid": 10 + idx,
+            "duration_seconds": 120,
+        })
+        auction_id = create.get("auction", {}).get("id")
+        call(f"{base_url}/api/auctions/{auction_id}/bid", {"bidder": "bot", "amount": 20 + idx})
+        call(f"{base_url}/api/auctions/{auction_id}/close", {})
+        get(f"{base_url}/api/history")
+        latencies.append(time.time() - start)
+    throughput = iterations / sum(latencies)
+
     print(f"Latency avg: {mean(latencies):.4f}s")
     print(f"Throughput: {throughput:.2f} ops/s")
 
