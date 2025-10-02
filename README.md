@@ -30,6 +30,8 @@ curl -X POST http://localhost:7000/auction.AuctionGateway/Execute \
 
 Use the same endpoint with different `command` payloads (`place_bid`, `close`, `list`) to exercise the API.
 
+> Tip: the Go services now default to `localhost:7001-7005` for cross-service traffic so you can also run them directly without Docker. Start each service in a separate terminal with `go run ./services/<name>` (e.g. `go run ./services/auction`) and then launch the gateway last. When using Docker Compose the container environment variables continue to point at the in-network hostnames, so both workflows are supported out of the box.
+
 ## Running the Python layered architecture with GUI
 
 ```bash

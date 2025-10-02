@@ -289,6 +289,7 @@ bob, 30"></textarea>
         flash('success', 'Auction created successfully.');
         event.target.reset();
         document.getElementById('starting_bid').value = 10;
+        await loadAuctions();
       } else {
         flash('error', resolveMessage(result.data, 'Failed to create auction'));
       }
@@ -306,6 +307,7 @@ bob, 30"></textarea>
       if (result.ok) {
         flash('success', 'Bid accepted.');
         event.target.reset();
+        await loadAuctions();
       } else {
         flash('error', resolveMessage(result.data, 'Bid failed'));
       }
@@ -332,6 +334,7 @@ bob, 30"></textarea>
         const accepted = result.data.accepted || 0;
         flash('success', `Processed ${accepted} of ${result.data.submitted} bids.`);
         document.getElementById('bulk-entries').value = '';
+        await loadAuctions();
       } else {
         const accepted = result.data.accepted || 0;
         const lastResponse = result.data.results?.slice(-1)[0]?.response || result.data;
@@ -346,6 +349,7 @@ bob, 30"></textarea>
       const result = await submitJSON(`/api/auctions/${auctionId}/close`, 'POST');
       if (result.ok) {
         flash('success', 'Auction closed.');
+        await loadAuctions();
       } else {
         flash('error', resolveMessage(result.data, 'Unable to close auction'));
       }

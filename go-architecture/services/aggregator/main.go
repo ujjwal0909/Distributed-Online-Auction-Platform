@@ -36,11 +36,11 @@ func dialClient(addr string) *grpc.ClientConn {
 }
 
 func (g *gatewayServer) initClients() {
-	catalogAddr := getenv("CATALOG_ADDR", "catalog:7001")
-	validatorAddr := getenv("VALIDATOR_ADDR", "validator:7002")
-	historyAddr := getenv("HISTORY_ADDR", "history:7003")
-	updatesAddr := getenv("UPDATES_ADDR", "updates:7004")
-	notifierAddr := getenv("NOTIFIER_ADDR", "notifier:7005")
+	catalogAddr := getenv("CATALOG_ADDR", "localhost:7001")
+	validatorAddr := getenv("VALIDATOR_ADDR", "localhost:7002")
+	historyAddr := getenv("HISTORY_ADDR", "localhost:7003")
+	updatesAddr := getenv("UPDATES_ADDR", "localhost:7004")
+	notifierAddr := getenv("NOTIFIER_ADDR", "localhost:7005")
 
 	g.catalog = pb.NewAuctionCatalogClient(dialClient(catalogAddr))
 	g.validator = pb.NewBidValidatorClient(dialClient(validatorAddr))
