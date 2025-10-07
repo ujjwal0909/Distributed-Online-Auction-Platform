@@ -51,7 +51,15 @@ class AuctionHandler(JSONRequestHandler):
 def create_auction(handler, payload, params):
     name = payload.get("name")
     starting_bid = payload.get("starting_bid", 0)
-    duration = payload.get("duration_seconds", 60)
+    duration = payload.get("duration_seconds")
+    if duration in (None, ""):
+        duration = 0
+    try:
+        duration = int(duration)
+    except (TypeError, ValueError):
+        return 400, {"error": "duration_seconds must be an integer"}
+    if duration < 0:
+        return 400, {"error": "duration_seconds cannot be negative"}
     if not name:
         return 400, {"error": "name is required"}
     if starting_bid <= 0:
@@ -67,7 +75,7 @@ def create_auction(handler, payload, params):
         "duration_seconds": duration,
         "status": "OPEN",
         "status_reason": "Open for bids",
-        "closing_time": time.time() + duration,
+        "closing_time": time.time() + duration if duration else 0,
         "bids": [],
     }
     with _lock:

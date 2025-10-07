@@ -66,7 +66,7 @@
         <label for="bulk-auction">Auction</label>
         <select id="bulk-auction"></select>
 
-        <label for="bulk-entries">Bids (one per line as <em>bidder, amount</em>)</label>
+        <label for="bulk-entries">Bid entries</label>
         <textarea id="bulk-entries" placeholder="alice, 25
 bob, 30"></textarea>
 
@@ -286,6 +286,10 @@ bob, 30"></textarea>
       };
       const result = await submitJSON('/api/auctions', 'POST', payload);
       if (result.ok) {
+        const created = result.data?.auction;
+        if (created) {
+          applyAuctionUpdate(created);
+        }
         flash('success', 'Auction created successfully.');
         event.target.reset();
         document.getElementById('starting_bid').value = 10;
