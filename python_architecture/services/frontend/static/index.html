@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Distributed Auction Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(145deg, #050816, #1e1b4b 50%, #4338ca);
+      --card-bg: rgba(15, 23, 42, 0.68);
+      --panel-bg: rgba(248, 250, 252, 0.98);
+      --panel-muted: rgba(255, 255, 255, 0.6);
+      --accent: #6366f1;
+      --accent-dark: #4338ca;
+      --accent-light: rgba(99, 102, 241, 0.12);
+      --accent-gradient: linear-gradient(120deg, #6366f1, #8b5cf6);
+      --success: #16a34a;
+      --error: #dc2626;
+      --warning: #f59e0b;
+      --border: rgba(148, 163, 184, 0.25);
+      --border-strong: rgba(99, 102, 241, 0.35);
+      --text-primary: #0f172a;
+      --text-muted: #475569;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(129, 140, 248, 0.18), transparent 60%),
+                  radial-gradient(circle at 80% 20%, rgba(14, 165, 233, 0.12), transparent 55%),
+                  radial-gradient(circle at bottom right, rgba(251, 191, 36, 0.12), transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
+
+    header.hero {
+      padding: 3.8rem 4vw 3rem;
+      color: #f8fafc;
+      position: relative;
+      overflow: hidden;
+    }
+
+    header.hero::before,
+    header.hero::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(0px);
+      opacity: 0.55;
+      z-index: 0;
+      animation: float 18s ease-in-out infinite;
+    }
+
+    header.hero::before {
+      width: 480px;
+      height: 480px;
+      top: -160px;
+      right: -140px;
+      background: radial-gradient(circle, rgba(129, 140, 248, 0.65), transparent 60%);
+    }
+
+    header.hero::after {
+      width: 380px;
+      height: 380px;
+      bottom: -180px;
+      left: -80px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.6), transparent 60%);
+      animation-delay: -6s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(0, -18px, 0) scale(1.05); }
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      max-width: 960px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.4rem 0.95rem;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.2);
+      color: rgba(248, 250, 252, 0.95);
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      width: fit-content;
+      backdrop-filter: blur(12px);
+    }
+
+    .hero-title {
+      font-size: clamp(2.4rem, 4vw, 3.4rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0;
+    }
+
+    .hero-subtitle {
+      font-size: clamp(1.05rem, 2vw, 1.25rem);
+      color: rgba(241, 245, 249, 0.88);
+      max-width: 640px;
+      line-height: 1.7;
+      margin: 0;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .hero-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 1.1rem;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.2);
+      color: #f8fafc;
+      font-weight: 500;
+      font-size: 0.9rem;
+      letter-spacing: 0.02em;
+      backdrop-filter: blur(12px);
+    }
+
+    .hero-chip svg {
+      width: 18px;
+      height: 18px;
+      opacity: 0.85;
+    }
+
+    main {
+      flex: 1;
+      padding: 0 4vw 4rem;
+      position: relative;
+      margin-top: -90px;
+      animation: fade-in 0.8s ease;
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2.8rem;
+    }
+
+    .panel {
+      background: var(--panel-bg);
+      border-radius: 24px;
+      box-shadow: 0 22px 45px rgba(15, 23, 42, 0.18);
+      padding: clamp(1.6rem, 3vw, 2.4rem);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      backdrop-filter: blur(18px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      pointer-events: none;
+      mix-blend-mode: lighten;
+      opacity: 0.25;
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 1.55rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .panel-subtitle {
+      margin: 0.35rem 0 0;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .panel-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1.5rem;
+      margin-bottom: 1.4rem;
+    }
+
+    .panel-heading svg {
+      width: 40px;
+      height: 40px;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .stats-panel {
+      background: rgba(15, 23, 42, 0.75);
+      color: #f8fafc;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .stats-panel::after {
+      display: none;
+    }
+
+    .stats-panel h2 {
+      color: #e2e8f0;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.4rem;
+      margin-top: 0.8rem;
+    }
+
+    .stat-card {
+      position: relative;
+      border-radius: 20px;
+      padding: 1.4rem 1.6rem;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 1.1rem;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      overflow: hidden;
+      color: #e2e8f0;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(99, 102, 241, 0.22), transparent 55%);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .stat-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      background: rgba(99, 102, 241, 0.25);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #c7d2fe;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    }
+
+    .stat-icon svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .stat-label {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: rgba(226, 232, 240, 0.7);
+      font-weight: 600;
+    }
+
+    .stat-value {
+      font-size: 2.05rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-top: 0.35rem;
+      color: #f8fafc;
+    }
+
+    .stat-note {
+      font-size: 0.85rem;
+      color: rgba(226, 232, 240, 0.75);
+      margin-top: 0.35rem;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+      gap: 2rem;
+      align-items: start;
+    }
+
+    .column {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .message {
+      padding: 0.95rem 1.2rem;
+      border-radius: 14px;
+      margin-bottom: 1.2rem;
+      font-weight: 500;
+      display: none;
+      border: 1px solid transparent;
+    }
+
+    .message.success {
+      background: rgba(34, 197, 94, 0.18);
+      color: #22c55e;
+      border-color: rgba(34, 197, 94, 0.25);
+    }
+
+    .message.error {
+      background: rgba(248, 113, 113, 0.16);
+      color: #ef4444;
+      border-color: rgba(248, 113, 113, 0.25);
+    }
+
+    .create-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      padding: 0.78rem 0.85rem;
+      margin-top: 0.6rem;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      border-radius: 14px;
+      font-size: 1rem;
+      background: #fff;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    button {
+      margin-top: 1.4rem;
+      padding: 0.8rem 1.55rem;
+      background: var(--accent-gradient);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.2s ease;
+      box-shadow: 0 16px 32px rgba(99, 102, 241, 0.35);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+      box-shadow: 0 22px 36px rgba(99, 102, 241, 0.4);
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .control-card {
+      background: rgba(248, 250, 252, 0.95);
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      padding: 1.3rem 1.45rem;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 18px 28px rgba(15, 23, 42, 0.08);
+      transition: transform 0.18s ease, box-shadow 0.2s ease;
+    }
+
+    .control-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 24px 38px rgba(15, 23, 42, 0.12);
+    }
+
+    .control-card h3 {
+      margin: 0 0 0.8rem 0;
+      font-size: 1.12rem;
+      color: var(--text-primary);
+    }
+
+    .control-card label {
+      margin-top: 0.75rem;
+    }
+
+    .empty-state {
+      padding: 1.4rem 1.5rem;
+      border: 1px dashed rgba(148, 163, 184, 0.45);
+      border-radius: 20px;
+      color: var(--text-muted);
+      text-align: center;
+      background: rgba(241, 245, 249, 0.65);
+      font-weight: 500;
+    }
+
+    .auctions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .auction-card {
+      position: relative;
+      border-radius: 22px;
+      padding: 1.45rem 1.6rem;
+      background: rgba(248, 250, 252, 0.96);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      box-shadow: 0 20px 32px rgba(15, 23, 42, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      overflow: hidden;
+    }
+
+    .auction-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(59, 130, 246, 0.25));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      opacity: 0.75;
+    }
+
+    .auction-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 28px 46px rgba(15, 23, 42, 0.16);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .title-block h3 {
+      margin: 0;
+      font-size: 1.25rem;
+    }
+
+    .title-block p {
+      margin: 0.4rem 0 0;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .auction-id {
+      display: inline-flex;
+      padding: 0.25rem 0.7rem;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 0.6rem;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      background: rgba(34, 197, 94, 0.15);
+      color: #15803d;
+      border: 1px solid rgba(34, 197, 94, 0.35);
+      white-space: nowrap;
+    }
+
+    .status-chip.closed {
+      background: rgba(248, 113, 113, 0.18);
+      color: #b91c1c;
+      border-color: rgba(248, 113, 113, 0.28);
+    }
+
+    .status-chip svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .card-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      font-size: 0.95rem;
+    }
+
+    .meta-label {
+      display: block;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .meta-value {
+      display: block;
+      margin-top: 0.4rem;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .status-note {
+      font-style: italic;
+      color: var(--text-muted);
+    }
+
+    .bids-list {
+      border-top: 1px solid rgba(148, 163, 184, 0.22);
+      padding-top: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .bids-title {
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .bids-items {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .bid-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 12px;
+      background: rgba(241, 245, 249, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      font-size: 0.94rem;
+    }
+
+    .bidder {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .bid-time {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .bid-amount {
+      font-weight: 600;
+      color: var(--accent-dark);
+    }
+
+    .history {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-height: 380px;
+      overflow-y: auto;
+      padding-right: 0.6rem;
+      position: relative;
+    }
+
+    .history::before {
+      content: '';
+      position: absolute;
+      left: 10px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(180deg, rgba(99, 102, 241, 0.25), rgba(59, 130, 246, 0));
+    }
+
+    .history-entry {
+      position: relative;
+      margin-left: 32px;
+      background: rgba(241, 245, 249, 0.88);
+      border-radius: 16px;
+      padding: 1rem 1.1rem;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      color: var(--text-muted);
+      box-shadow: 0 12px 22px rgba(15, 23, 42, 0.1);
+    }
+
+    .history-entry::before {
+      content: '';
+      position: absolute;
+      left: -23px;
+      top: 16px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.18);
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .history-type {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+      color: var(--accent-dark);
+    }
+
+    .history-time {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .history-text {
+      margin: 0;
+      color: var(--text-primary);
+      font-weight: 500;
+      line-height: 1.55;
+    }
+
+    .history-empty {
+      margin-left: 32px;
+      padding: 1.2rem 1.3rem;
+      border-radius: 16px;
+      background: rgba(248, 250, 252, 0.9);
+      border: 1px dashed rgba(148, 163, 184, 0.35);
+      color: var(--text-muted);
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .flash-in {
+      animation: flash-in 1.1s ease;
+    }
+
+    @keyframes flash-in {
+      0% { box-shadow: 0 0 0 rgba(99, 102, 241, 0); transform: translateY(0); }
+      35% { box-shadow: 0 0 0 12px rgba(99, 102, 241, 0.15); transform: translateY(-3px); }
+      100% { box-shadow: 0 0 0 rgba(99, 102, 241, 0); transform: translateY(0); }
+    }
+
+    ::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.4);
+      border-radius: 999px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.55);
+    }
+
+    @media (max-width: 1180px) {
+      main {
+        margin-top: -70px;
+      }
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      header.hero {
+        padding: 3.2rem 1.5rem 2.6rem;
+      }
+      main {
+        padding: 0 1.5rem 3.5rem;
+      }
+      .panel {
+        padding: 1.6rem;
+      }
+      .hero-actions {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero-content">
+        <p class="hero-badge">Live Demo</p>
+        <h1 class="hero-title">Distributed Auction Control Center</h1>
+        <p class="hero-subtitle">
+          Orchestrate item listings, showcase real-time bidding, and monitor a distributed deployment from a
+          single, presentation-ready dashboard.
+        </p>
+        <div class="hero-actions">
+          <span class="hero-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 7h16M4 12h10M4 17h16" />
+            </svg>
+            Dual Architecture</span>
+          <span class="hero-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16v9H4z" /><path d="M4 17h16" /><path d="M7 21h10" />
+            </svg>
+            Docker &amp; 5 Nodes</span>
+          <span class="hero-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 6v6l4 2" />
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+            Live SSE Updates</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="container">
+        <section class="panel stats-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>System Pulse</h2>
+              <p class="panel-subtitle">Live metrics from the distributed auction deployment.</p>
+            </div>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 10h4l2 7 3-14 2 7h5" />
+                </svg>
+              </div>
+              <div>
+                <span class="stat-label">Open Auctions</span>
+                <span id="stat-open" class="stat-value">0</span>
+                <span class="stat-note">Auctions accepting bids right now</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                </svg>
+              </div>
+              <div>
+                <span class="stat-label">Total Auctions</span>
+                <span id="stat-total" class="stat-value">0</span>
+                <span class="stat-note">All auctions managed this session</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 6h-7l-4 12-3-9H3" />
+                </svg>
+              </div>
+              <div>
+                <span class="stat-label">Bids Placed</span>
+                <span id="stat-bids" class="stat-value">0</span>
+                <span class="stat-note">Across individual and bulk submissions</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 8v4l3 2" />
+                  <circle cx="12" cy="12" r="9" />
+                </svg>
+              </div>
+              <div>
+                <span class="stat-label">Last Update</span>
+                <span id="stat-last" class="stat-value" style="font-size:1.3rem;">—</span>
+                <span class="stat-note">Reflects the latest system event</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="content-grid">
+          <div class="column primary">
+            <section class="panel create-panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Create Auction</h2>
+                  <p class="panel-subtitle">Launch a new listing with a compelling description and opening bid.</p>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </div>
+              <div id="flash" class="message"></div>
+              <form id="create-form" class="create-grid">
+                <div>
+                  <label for="name">Item Name</label>
+                  <input id="name" required placeholder="e.g. Limited Edition Headphones" />
+                </div>
+                <div>
+                  <label for="starting_bid">Starting Bid</label>
+                  <input id="starting_bid" type="number" min="1" step="0.01" value="10" required />
+                </div>
+                <div class="full">
+                  <label for="description">Description</label>
+                  <textarea id="description" placeholder="Highlight unique selling points and auction details..."></textarea>
+                </div>
+                <div>
+                  <button type="submit">Create Auction</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="panel overview-panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Auctions Overview</h2>
+                  <p class="panel-subtitle">Monitor every auction, status, and bid history in one place.</p>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 3h7v7H3z" />
+                  <path d="M14 3h7v7h-7z" />
+                  <path d="M14 14h7v7h-7z" />
+                  <path d="M3 14h7v7H3z" />
+                </svg>
+              </div>
+              <div id="auctions" class="auctions-grid"></div>
+            </section>
+          </div>
+
+          <div class="column secondary">
+            <section class="panel controls-panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Bid Console</h2>
+                  <p class="panel-subtitle">Execute single bids, load test with batches, or close auctions live.</p>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 5v14" />
+                  <path d="M18 9v10" />
+                  <path d="M6 13v6" />
+                </svg>
+              </div>
+              <div class="control-grid">
+                <form id="bid-form" class="control-card">
+                  <h3>Place Bid</h3>
+                  <label for="bid-auction">Auction</label>
+                  <select id="bid-auction"></select>
+                  <label for="bidder">Bidder Name</label>
+                  <input id="bidder" required placeholder="Your display name" />
+                  <label for="bid-amount">Bid Amount</label>
+                  <input id="bid-amount" type="number" min="0" step="0.01" required />
+                  <button type="submit">Place Bid</button>
+                </form>
+
+                <form id="bulk-form" class="control-card">
+                  <h3>Bulk Bids</h3>
+                  <label for="bulk-auction">Auction</label>
+                  <select id="bulk-auction"></select>
+                  <label for="bulk-entries">Bid entries</label>
+                  <textarea id="bulk-entries" placeholder="alice, 25\nbob, 30"></textarea>
+                  <button type="submit">Submit All Bids</button>
+                </form>
+
+                <form id="close-form" class="control-card">
+                  <h3>Close Auction</h3>
+                  <label for="close-auction">Auction</label>
+                  <select id="close-auction"></select>
+                  <button type="submit">Close Selected Auction</button>
+                </form>
+              </div>
+            </section>
+
+            <section class="panel history-panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Activity Timeline</h2>
+                  <p class="panel-subtitle">Server-sent events showcase how the cluster evolves in real time.</p>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 5h18M3 12h18M3 19h18" />
+                </svg>
+              </div>
+              <div id="history" class="history"></div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let auctionsCache = [];
+    let historyCache = [];
+    let eventSource;
+    let highlightAuctionId = null;
+    let highlightHistoryTimestamp = null;
+
+    function flash(type, text) {
+      const node = document.getElementById('flash');
+      node.className = `message ${type}`;
+      node.textContent = text;
+      node.style.display = 'block';
+      setTimeout(() => {
+        node.style.display = 'none';
+      }, 4000);
+    }
+
+    function resolveMessage(value, fallback) {
+      if (!value) return fallback;
+      if (typeof value === 'string') return value;
+      if (typeof value === 'object') {
+        if (value.error) return resolveMessage(value.error, fallback);
+        if (value.message) return resolveMessage(value.message, fallback);
+      }
+      return fallback;
+    }
+
+    async function submitJSON(url, method, payload) {
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: payload ? JSON.stringify(payload) : undefined,
+      });
+      const data = await response.json().catch(() => ({}));
+      return { ok: response.ok, status: response.status, data };
+    }
+
+    function populateSelect(selectId, includeClosed = false) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      select.innerHTML = '';
+      auctionsCache
+        .filter((a) => includeClosed || a.status === 'OPEN')
+        .forEach((auction) => {
+          const option = document.createElement('option');
+          option.value = auction.id;
+          const price = auction.current_bid.toFixed
+            ? auction.current_bid.toFixed(2)
+            : auction.current_bid;
+          const statusNote = auction.status !== 'OPEN' && auction.status_reason
+            ? ` · ${auction.status_reason}`
+            : '';
+          option.textContent = `${auction.name} (#${auction.id}) · $${price}${statusNote}`;
+          select.appendChild(option);
+        });
+      if (!select.options.length) {
+        const placeholder = document.createElement('option');
+        placeholder.textContent = includeClosed ? 'No auctions available' : 'No open auctions';
+        placeholder.value = '';
+        select.appendChild(placeholder);
+      }
+    }
+
+    function updateStats() {
+      const openAuctions = auctionsCache.filter((item) => item.status === 'OPEN').length;
+      const totalAuctions = auctionsCache.length;
+      const totalBids = auctionsCache.reduce((sum, auction) => sum + (auction.bids ? auction.bids.length : 0), 0);
+      const lastEvent = historyCache[historyCache.length - 1];
+      const lastLabel = lastEvent ? new Date(lastEvent.timestamp * 1000).toLocaleTimeString() : '—';
+
+      document.getElementById('stat-open').textContent = openAuctions;
+      document.getElementById('stat-total').textContent = totalAuctions;
+      document.getElementById('stat-bids').textContent = totalBids;
+      document.getElementById('stat-last').textContent = lastLabel;
+    }
+
+    function renderAuctions() {
+      const container = document.getElementById('auctions');
+      container.innerHTML = '';
+      if (!auctionsCache.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.textContent = 'Create your first auction to see it showcased here.';
+        container.appendChild(empty);
+        return;
+      }
+      auctionsCache.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'auction-card';
+        card.dataset.auctionId = item.id;
+        const statusClass = item.status === 'OPEN' ? 'status-chip' : 'status-chip closed';
+        const statusLabel = item.status === 'OPEN' ? 'Open' : (item.status_reason || item.status || 'Closed');
+        const closingTime = item.closing_time
+          ? new Date(item.closing_time * 1000).toLocaleTimeString()
+          : 'N/A';
+        const closingLabel = item.status === 'OPEN' ? 'Closes' : 'Ended';
+        const bidsMarkup = (item.bids || [])
+          .map((bid) => {
+            const time = new Date(bid.timestamp * 1000).toLocaleTimeString();
+            return `
+              <div class="bid-row">
+                <div>
+                  <span class="bidder">${bid.bidder}</span>
+                  <span class="bid-time">${time}</span>
+                </div>
+                <span class="bid-amount">$${Number(bid.amount).toFixed(2)}</span>
+              </div>`;
+          })
+          .join('') || '<div class="empty-state" style="padding:0.8rem 1rem; border-style:solid; font-size:0.9rem;">No bids yet</div>';
+
+        card.innerHTML = `
+          <div class="card-header">
+            <div class="title-block">
+              <span class="auction-id">#${String(item.id).padStart(3, '0')}</span>
+              <h3>${item.name}</h3>
+              <p>${item.description || 'No description provided.'}</p>
+            </div>
+            <span class="${statusClass}">${statusLabel}</span>
+          </div>
+          <div class="card-meta">
+            <div>
+              <span class="meta-label">Current Bid</span>
+              <span class="meta-value">$${Number(item.current_bid).toFixed(2)}</span>
+            </div>
+            <div>
+              <span class="meta-label">Highest Bidder</span>
+              <span class="meta-value">${item.highest_bidder || '—'}</span>
+            </div>
+            <div>
+              <span class="meta-label">${closingLabel}</span>
+              <span class="meta-value">${closingTime}</span>
+            </div>
+          </div>
+          ${item.status !== 'OPEN' && item.status_reason ? `<div class="status-note">${item.status_reason}</div>` : ''}
+          <div class="bids-list">
+            <div class="bids-title">Bid History</div>
+            <div class="bids-items">${bidsMarkup}</div>
+          </div>
+        `;
+        container.appendChild(card);
+        if (highlightAuctionId && item.id === highlightAuctionId) {
+          requestAnimationFrame(() => {
+            card.classList.add('flash-in');
+            setTimeout(() => card.classList.remove('flash-in'), 1000);
+          });
+        }
+      });
+      highlightAuctionId = null;
+    }
+
+    function renderHistory() {
+      const container = document.getElementById('history');
+      container.innerHTML = '';
+      if (!historyCache.length) {
+        const empty = document.createElement('div');
+        empty.className = 'history-empty';
+        empty.textContent = 'Live event history will appear here as bids are placed.';
+        container.appendChild(empty);
+        return;
+      }
+      const highlight = highlightHistoryTimestamp;
+      historyCache.slice().reverse().forEach((item) => {
+        const entry = document.createElement('div');
+        entry.className = 'history-entry';
+        const when = new Date(item.timestamp * 1000).toLocaleTimeString();
+        entry.innerHTML = `
+          <div class="history-header">
+            <span class="history-type">${item.event_type || 'EVENT'}</span>
+            <span class="history-time">${when}</span>
+          </div>
+          <p class="history-text">${item.payload || ''}</p>
+        `;
+        container.appendChild(entry);
+        if (highlight && Math.abs(item.timestamp - highlight) < 0.0001) {
+          requestAnimationFrame(() => {
+            entry.classList.add('flash-in');
+            setTimeout(() => entry.classList.remove('flash-in'), 1000);
+          });
+        }
+      });
+      highlightHistoryTimestamp = null;
+    }
+
+    function applySnapshot(data) {
+      auctionsCache = data.auctions || [];
+      historyCache = data.events || [];
+      highlightAuctionId = null;
+      highlightHistoryTimestamp = null;
+      populateSelect('bid-auction');
+      populateSelect('bulk-auction');
+      populateSelect('close-auction', true);
+      renderAuctions();
+      renderHistory();
+      updateStats();
+    }
+
+    function applyAuctionUpdate(auction) {
+      if (!auction || !auction.id) return;
+      const index = auctionsCache.findIndex((item) => item.id === auction.id);
+      if (index >= 0) {
+        auctionsCache[index] = auction;
+      } else {
+        auctionsCache.push(auction);
+      }
+      auctionsCache.sort((a, b) => (b.closing_time || 0) - (a.closing_time || 0));
+      highlightAuctionId = auction.id;
+      populateSelect('bid-auction');
+      populateSelect('bulk-auction');
+      populateSelect('close-auction', true);
+      renderAuctions();
+      updateStats();
+    }
+
+    function applyHistoryUpdate(event) {
+      if (!event) return;
+      historyCache.push(event);
+      highlightHistoryTimestamp = event.timestamp;
+      renderHistory();
+      updateStats();
+    }
+
+    async function loadAuctions() {
+      try {
+        const [auctionsRes, historyRes] = await Promise.all([
+          fetch('/api/auctions', { cache: 'no-store' }),
+          fetch('/api/history', { cache: 'no-store' }),
+        ]);
+        const auctionsData = await auctionsRes.json();
+        const historyData = await historyRes.json();
+        applySnapshot({
+          auctions: auctionsData.auctions || [],
+          events: historyData.events || [],
+        });
+      } catch (err) {
+        console.warn('Failed to refresh auctions', err);
+      }
+    }
+
+    function setupEventStream() {
+      if (eventSource) {
+        eventSource.close();
+      }
+      eventSource = new EventSource('/api/updates/stream');
+      eventSource.addEventListener('snapshot', (event) => {
+        try {
+          const data = JSON.parse(event.data || '{}');
+          applySnapshot(data);
+        } catch (err) {
+          console.error('Invalid snapshot payload', err);
+        }
+      });
+      eventSource.addEventListener('auction', (event) => {
+        try {
+          applyAuctionUpdate(JSON.parse(event.data || '{}'));
+        } catch (err) {
+          console.error('Invalid auction payload', err);
+        }
+      });
+      eventSource.addEventListener('history', (event) => {
+        try {
+          applyHistoryUpdate(JSON.parse(event.data || '{}'));
+        } catch (err) {
+          console.error('Invalid history payload', err);
+        }
+      });
+      eventSource.onerror = () => {
+        if (eventSource) {
+          eventSource.close();
+        }
+        setTimeout(setupEventStream, 4000);
+      };
+    }
+
+    document.getElementById('create-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const payload = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value,
+        starting_bid: parseFloat(document.getElementById('starting_bid').value),
+      };
+      const result = await submitJSON('/api/auctions', 'POST', payload);
+      if (result.ok) {
+        const created = result.data?.auction;
+        if (created) {
+          applyAuctionUpdate(created);
+        }
+        flash('success', 'Auction created successfully.');
+        event.target.reset();
+        document.getElementById('starting_bid').value = 10;
+        await loadAuctions();
+      } else {
+        flash('error', resolveMessage(result.data, 'Failed to create auction'));
+      }
+    });
+
+    document.getElementById('bid-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const auctionId = document.getElementById('bid-auction').value;
+      if (!auctionId) return;
+      const payload = {
+        bidder: document.getElementById('bidder').value,
+        amount: parseFloat(document.getElementById('bid-amount').value),
+      };
+      const result = await submitJSON(`/api/auctions/${auctionId}/bid`, 'POST', payload);
+      if (result.ok) {
+        flash('success', 'Bid accepted.');
+        event.target.reset();
+        await loadAuctions();
+      } else {
+        flash('error', resolveMessage(result.data, 'Bid failed'));
+      }
+    });
+
+    document.getElementById('bulk-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const auctionId = document.getElementById('bulk-auction').value;
+      if (!auctionId) return;
+      const lines = document.getElementById('bulk-entries').value
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const bids = lines
+        .map((line) => {
+          const [name, amount] = line.split(/[ ,]+/);
+          return { bidder: name, amount: parseFloat(amount) };
+        })
+        .filter((entry) => entry.bidder && !Number.isNaN(entry.amount));
+      if (!bids.length) {
+        flash('error', 'Provide at least one valid bidder and amount pair.');
+        return;
+      }
+      const result = await submitJSON(`/api/auctions/${auctionId}/bids/bulk`, 'POST', { bids });
+      if (result.ok) {
+        const accepted = result.data.accepted || 0;
+        flash('success', `Processed ${accepted} of ${result.data.submitted} bids.`);
+        document.getElementById('bulk-entries').value = '';
+        await loadAuctions();
+      } else {
+        const lastResponse = result.data.results?.slice(-1)[0]?.response || result.data;
+        flash('error', resolveMessage(lastResponse, `No bids accepted out of ${result.data.submitted || 0}.`));
+      }
+    });
+
+    document.getElementById('close-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const auctionId = document.getElementById('close-auction').value;
+      if (!auctionId) return;
+      const result = await submitJSON(`/api/auctions/${auctionId}/close`, 'POST');
+      if (result.ok) {
+        flash('success', 'Auction closed.');
+        await loadAuctions();
+      } else {
+        flash('error', resolveMessage(result.data, 'Unable to close auction'));
+      }
+    });
+
+    setupEventStream();
+    loadAuctions();
+  </script>
+</body>
+</html>
